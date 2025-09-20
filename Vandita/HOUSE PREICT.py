@@ -1,4 +1,3 @@
-#add your code and change the file name 
 #!/usr/bin/env python3
 """
 Fixed and consolidated House Price dashboard script.
