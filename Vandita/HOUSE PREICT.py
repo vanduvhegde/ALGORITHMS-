@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+""" BUILDING BLOCKS for House Price Prediction Dashboard
 Fixed and consolidated House Price dashboard script.
 Save as a .py file and run. Requires: numpy, pandas, scikit-learn, matplotlib.
 Optional: customtkinter, xgboost, lightgbm, catboost.
@@ -62,7 +62,7 @@ try:
 except Exception:
     HAS_CAT = False
 
-# ---------------- Synthetic dataset generator ----------------
+# ---------------- Synthetic dataset generator ----------------(generate indian district data:city_district, property_type, area_sqft, bedrooms, bathrooms, total_floors, floor_number, construction_year, age_years, furnishing_status, parking_spaces, balconies, nearby_schools, nearby_hospitals, has_elevator, owner_type, listed_by, price)
 def generate_indian_district_data(n=2500, seed=42):
     rng = np.random.RandomState(seed)
     districts = [
@@ -105,6 +105,7 @@ def generate_indian_district_data(n=2500, seed=42):
     price = (base * district_factor * type_factor * furnish_factor * parking_factor * balcony_factor)
     price = price + (bedrooms * 45000) - (age * 750) + (nearby_schools * 1200) + (nearby_hospitals * 1800) + noise
 
+# ensure price 
     df = pd.DataFrame({
         "building_id": ["B" + str(i).zfill(6) for i in range(1, n + 1)],
         "city_district": district,
@@ -128,7 +129,7 @@ def generate_indian_district_data(n=2500, seed=42):
     })
     return df
 
-# ---------------- Data audit logic ----------------
+# ---------------- Data audit logic ---------------- (returns a dict of findings)
 def audit_dataframe(df: pd.DataFrame, verbose=True):
     res = {}
     n_rows, n_cols = df.shape
@@ -138,6 +139,7 @@ def audit_dataframe(df: pd.DataFrame, verbose=True):
         'missing_values': int(df.isnull().sum().sum()),
         'duplicate_rows': int(df.duplicated().sum())
     }
+   # Numeric summaries
 
     num = df.select_dtypes(include=[np.number]).copy()
     num_summary = {}
@@ -159,6 +161,8 @@ def audit_dataframe(df: pd.DataFrame, verbose=True):
         num_summary[c]['outliers_3iqr'] = int(outliers)
     res['numeric_summary'] = num_summary
 
+
+    # Constant and low-variance columns
     const_cols = [c for c in df.columns if df[c].nunique(dropna=False) <= 1]
     low_variance = [c for c in df.columns if df[c].dtype != 'object' and df[c].nunique() <= max(2, int(0.01 * n_rows))]
     res['constant_columns'] = const_cols
@@ -191,6 +195,8 @@ def audit_dataframe(df: pd.DataFrame, verbose=True):
         else:
             res['pps_flag'] = 'pps_ok'
 
+
+    # Synthetic data heuristics
     synthetic_warnings = []
     for c in num.columns:
         col = num[c].dropna()
@@ -235,7 +241,7 @@ def audit_dataframe(df: pd.DataFrame, verbose=True):
     res['heuristic_decision'] = 'likely_real' if score >= 1 else 'possibly_synthetic_or_noisy'
     return res
 
-# ---------------- Helper for feature preparation ----------------
+# ---------------- Helper for feature preparation ----------------normalize categorical, drop id/target
 def prepare_features_for_training(df):
     X = df.drop(columns=['building_id'], errors='ignore').copy()
     if 'price' in X.columns:
@@ -244,7 +250,7 @@ def prepare_features_for_training(df):
     X = pd.get_dummies(X, columns=cat_cols, drop_first=True)
     return X
 
-# ---------------- Small DataTable (Treeview) for preview ----------------
+# ---------------- Small DataTable (Treeview) for preview ---------------- (max 500 rows) with export to Excel
 class DataTable(ttk.Frame):
     def __init__(self, master, df: pd.DataFrame, max_rows=500, **kwargs):
         super().__init__(master, **kwargs)
@@ -277,7 +283,8 @@ class DataTable(ttk.Frame):
     def export_excel(self, path):
         self.df.to_excel(path, index=False)
 
-# ---------------- Graph & Stats windows (guard for matplotlib) ----------------
+# ---------------- Graph & Stats windows (guard for matplotlib) ---------------- 
+# pop-up windows to show graphs and stats
 class GraphWindow(tk.Toplevel):
     def __init__(self, master, fig, title="Graph"):
         super().__init__(master)
@@ -292,6 +299,7 @@ class GraphWindow(tk.Toplevel):
             ttk.Label(self, text="Matplotlib not available").pack(fill='both', expand=True)
         self.protocol("WM_DELETE_WINDOW", self.destroy)
 
+# ---------------- Stats window ----------------
 class StatsWindow(tk.Toplevel):
     def __init__(self, master, df, predictions):
         super().__init__(master)
@@ -317,6 +325,7 @@ class StatsWindow(tk.Toplevel):
         lbl = ttk.Label(frame, text=stats_text, justify='left', font=("Segoe UI", 11))
         lbl.grid(row=0, column=0, sticky='nw')
 
+# plot histogram
         if HAS_MATPLOTLIB:
             fig, ax = plt.subplots(figsize=(8, 4))
             ax.hist(predictions, bins=40)
@@ -330,7 +339,8 @@ class StatsWindow(tk.Toplevel):
             frame.grid_rowconfigure(1, weight=1)
             frame.grid_columnconfigure(0, weight=1)
 
-# ---------------- Main GUI app ----------------
+# ---------------- Main GUI app ----------------  
+# merged app with tabs: Data, EDA, Train, Predict, Audit, Algorithms & Outputs
 class MergedHousePriceApp:
     def __init__(self, root):
         self.root = root
@@ -355,6 +365,7 @@ class MergedHousePriceApp:
         self.front_frame.pack(fill='both', expand=True)
         self._build_front_page()
 
+  # ---------------- Front page ----------------
     def _build_front_page(self):
         for w in self.front_frame.winfo_children():
             w.destroy()
@@ -369,6 +380,7 @@ class MergedHousePriceApp:
         status_text = f"Matplotlib: {'available' if HAS_MATPLOTLIB else 'NOT available'}  |  XGBoost: {'yes' if HAS_XGB else 'no'}  |  LightGBM: {'yes' if HAS_LGBM else 'no'}  |  CatBoost: {'yes' if HAS_CAT else 'no'}"
         ttk.Label(self.front_frame, text=status_text, font=("Courier", 10)).pack(pady=6)
 
+# ---------------- CLI test runner ----------------
     def _run_cli_tests(self):
         try:
             self._run_tests_internal()
@@ -378,6 +390,7 @@ class MergedHousePriceApp:
         except Exception as e:
             messagebox.showerror("Tests error", str(e))
 
+# internal test logic
     def _run_tests_internal(self):
         df = generate_indian_district_data(n=200, seed=0)
         audit = audit_dataframe(df)
@@ -391,15 +404,17 @@ class MergedHousePriceApp:
         assert 'price_per_sqft' in audit3, 'pps missing'
         return 0
 
+    # ---------------- Dashboard & Tabs ----------------
     def _enter_dashboard(self):
         self.front_frame.pack_forget()
         self._build_notebook()
 
+    # ---------------- Notebook & Tabs ----------------
     def _build_notebook(self):
         self.nb = ttk.Notebook(self.root)
         self.nb.pack(fill='both', expand=True)
 
-        # create tabs
+        # create tabs and add to notebook  
         self.tab_data = ttk.Frame(self.nb)
         self.tab_eda = ttk.Frame(self.nb)
         self.tab_train = ttk.Frame(self.nb)
@@ -414,7 +429,7 @@ class MergedHousePriceApp:
         self.nb.add(self.tab_audit, text='Audit')
         self.nb.add(self.tab_alg, text='Algorithms & Outputs')
 
-        # build each tab
+        # build each tab UI and logic  
         self._build_data_tab()
         self._build_eda_tab()
         self._build_train_tab()
@@ -422,7 +437,7 @@ class MergedHousePriceApp:
         self._build_audit_tab()
         self._build_alg_tab()
 
-    # ---------------- Data tab ----------------
+    # ---------------- Data tab ---------------- (load/generate/save/preview)
     def _build_data_tab(self):
         f = self.tab_data
         top = ttk.Frame(f); top.pack(fill='x', pady=8)
@@ -434,6 +449,7 @@ class MergedHousePriceApp:
         self.data_preview_frame = ttk.Frame(f, relief='sunken')
         self.data_preview_frame.pack(fill='both', expand=True, padx=8, pady=8)
 
+# current table
     def _on_generate(self):
         try:
             self.df = generate_indian_district_data(n=3000)
@@ -442,6 +458,7 @@ class MergedHousePriceApp:
         except Exception as e:
             messagebox.showerror('Error', str(e))
 
+# load from file
     def _on_load(self):
         path = filedialog.askopenfilename(filetypes=[('CSV files', '*.csv'), ('Excel files', '*.xlsx;*.xls')])
         if not path:
@@ -456,6 +473,7 @@ class MergedHousePriceApp:
         except Exception as e:
             messagebox.showerror('Load failed', f'{e}\n{traceback.format_exc()}')
 
+# save to CSV
     def _on_save(self):
         if self.df is None:
             messagebox.showwarning('No data', 'No data to save')
@@ -469,18 +487,19 @@ class MergedHousePriceApp:
         except Exception as e:
             messagebox.showerror('Save failed', str(e))
 
+  # show preview
     def _show_preview(self):
         for c in self.data_preview_frame.winfo_children():
             c.destroy()
         if self.df is None:
             ttk.Label(self.data_preview_frame, text='No data loaded').pack()
             return
-        # show a Treeview table
+        # show a Treeview table with max 200 rows
         table = DataTable(self.data_preview_frame, self.df, max_rows=200)
         table.pack(fill='both', expand=True)
         self.current_table = table
 
-    # ---------------- EDA tab ----------------
+    # ---------------- EDA tab ---------------- (summary, plots)  
     def _build_eda_tab(self):
         f = self.tab_eda
         top = ttk.Frame(f); top.pack(fill='x', pady=8)
@@ -491,6 +510,7 @@ class MergedHousePriceApp:
         self.eda_text = tk.Text(self.eda_frame, height=20)
         self.eda_text.pack(fill='both', expand=True)
 
+# EDA summary
     def _eda_summary(self):
         if self.df is None:
             messagebox.showwarning('No data', 'Load or generate data first')
@@ -498,6 +518,7 @@ class MergedHousePriceApp:
         s = self.df.head(10).to_string(index=False) + '\n\n' + self.df.describe(include='all').to_string()
         self.eda_text.configure(state='normal'); self.eda_text.delete('1.0', tk.END); self.eda_text.insert('1.0', s); self.eda_text.configure(state='disabled')
 
+  # plot price histogram
     def _eda_plot_price(self):
         if self.df is None:
             messagebox.showwarning('No data', 'Load or generate data first'); return
@@ -512,6 +533,7 @@ class MergedHousePriceApp:
         win = tk.Toplevel(self.root); win.title('Price Histogram')
         canvas = FigureCanvasTkAgg(fig, master=win); canvas.draw(); canvas.get_tk_widget().pack(fill='both', expand=True)
 
+    # plot correlation heatmap
     def _eda_plot_corr(self):
         if self.df is None:
             messagebox.showwarning('No data', 'Load or generate data first'); return
@@ -529,7 +551,7 @@ class MergedHousePriceApp:
         win = tk.Toplevel(self.root); win.title('Correlation Heatmap')
         canvas = FigureCanvasTkAgg(fig, master=win); canvas.draw(); canvas.get_tk_widget().pack(fill='both', expand=True)
 
-    # ---------------- Train tab ----------------
+    # ---------------- Train tab ---------------- (train/test split, model selection, training, results)  
     def _build_train_tab(self):
         f = self.tab_train
         left = ttk.Frame(f); left.pack(side='left', fill='y', padx=8, pady=8)
@@ -549,6 +571,7 @@ class MergedHousePriceApp:
         self.train_text = tk.Text(right, height=20)
         self.train_text.pack(fill='both', expand=True)
 
+# train logic with selected algo
     def _train_selected(self):
         if self.df is None:
             messagebox.showwarning('No data', 'Load or generate data first'); return
@@ -561,7 +584,7 @@ class MergedHousePriceApp:
                 messagebox.showwarning('No target', 'Dataset must have a "price" column'); return
             y = self.df['price'].values
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=float(self.test_size_entry.get() or 0.2), random_state=42)
-            # pick model
+            # pick model based on algo
             if algo == 'LinearRegression':
                 model = LinearRegression()
             elif algo == 'Ridge':
@@ -589,12 +612,12 @@ class MergedHousePriceApp:
             self.model = model
             self.model_name = algo
             self.train_results = {'rmse': rmse, 'r2': r2, 'mae': mae, 'y_test': y_test, 'y_pred': preds, 'features': X.columns.tolist()}
-            # display
+            # display results
             self.train_text.delete('1.0', tk.END)
             self.train_text.insert(tk.END, f'Trained {algo}\nRMSE: {rmse:.2f}\nR2: {r2:.3f}\nMAE: {mae:.2f}\n')
-            # save artifacts
+            # save artifacts  
             outdir = 'outputs'; os.makedirs(outdir, exist_ok=True)
-            # actual vs pred
+            # actual vs pred plot
             if HAS_MATPLOTLIB:
                 try:
                     fig, ax = plt.subplots(figsize=(6,4))
@@ -607,7 +630,7 @@ class MergedHousePriceApp:
                     self.train_text.insert(tk.END, f'Saved plot: {ppath}\n')
                 except Exception:
                     pass
-            # feature importance for tree models
+            # feature importance for tree models   
             try:
                 if hasattr(model, 'feature_importances_'):
                     fi = model.feature_importances_
@@ -621,7 +644,7 @@ class MergedHousePriceApp:
                     self.train_text.insert(tk.END, f'Saved feature importance: {fipath}\n')
             except Exception:
                 pass
-            # save model bundle
+            # save model bundle  
             try:
                 joblib.dump({'model': model, 'features': X.columns.tolist()}, os.path.join(outdir, f'model_{algo}.joblib'))
                 self.train_text.insert(tk.END, f'Model saved to outputs/model_{algo}.joblib\n')
@@ -629,7 +652,7 @@ class MergedHousePriceApp:
                 pass
         except Exception as e:
             messagebox.showerror('Training failed', f'{e}\n{traceback.format_exc()}')
-
+# save model to file
     def _save_model(self):
         if self.model is None:
             messagebox.showwarning('No model', 'Train a model first'); return
@@ -642,7 +665,7 @@ class MergedHousePriceApp:
         except Exception as e:
             messagebox.showerror('Save failed', str(e))
 
-    # ---------------- Predict tab ----------------
+    # ---------------- Predict tab ----------------(single instance prediction) 
     def _build_predict_tab(self):
         f = self.tab_predict
         left = ttk.Frame(f); left.pack(side='left', fill='y', padx=8, pady=8)
@@ -661,6 +684,7 @@ class MergedHousePriceApp:
         self.pred_text = tk.Text(right, height=20)
         self.pred_text.pack(fill='both', expand=True)
 
+# prediction logic
     def _predict_instance(self):
         if self.model is None:
             messagebox.showwarning('No model', 'Train a model first'); return
@@ -688,7 +712,7 @@ class MergedHousePriceApp:
         except Exception as e:
             messagebox.showerror('Prediction error', f'{e}\n{traceback.format_exc()}')
 
-    # ---------------- Audit tab ----------------
+    # ---------------- Audit tab ---------------- (quick data audit, plots, explanations)
     def _build_audit_tab(self):
         f = self.tab_audit
         left = ttk.Frame(f); left.pack(side='left', fill='y', padx=8, pady=8)
@@ -698,7 +722,7 @@ class MergedHousePriceApp:
         ttk.Button(left, text='Explain Outputs', command=self._explain_outputs).pack(pady=6)
         self.audit_text = tk.Text(right)
         self.audit_text.pack(fill='both', expand=True)
-
+# audit logic
     def _run_audit(self):
         if self.df is None:
             messagebox.showwarning('No data', 'Load or generate data first'); return
@@ -708,6 +732,7 @@ class MergedHousePriceApp:
         except Exception as e:
             messagebox.showerror('Audit failed', f'{e}\n{traceback.format_exc()}')
 
+# audit plots
     def _show_audit_plots(self):
         if self.df is None:
             messagebox.showwarning('No data', 'Load or generate data first'); return
@@ -729,6 +754,7 @@ class MergedHousePriceApp:
         except Exception:
             pass
 
+    # explain outputs 
     def _explain_outputs(self):
         expl = (
             "Training outputs:\n"
@@ -739,7 +765,7 @@ class MergedHousePriceApp:
         )
         messagebox.showinfo('Explain outputs', expl)
 
-    # ---------------- Algorithms tab ----------------
+    # ---------------- Algorithms tab ---------------- (available algorithms, artifacts info)
     def _build_alg_tab(self):
         f = self.tab_alg
         text = "Available algorithms in this environment:\n- LinearRegression, Ridge, Lasso, RandomForest, GradientBoosting"
@@ -750,7 +776,8 @@ class MergedHousePriceApp:
         ttk.Label(f, text=text, justify='left').pack(fill='both', padx=8, pady=8)
 
 
-# ------------- main -------------
+# ------------- main -------------   
+# entry point
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--test':
         try:
@@ -769,7 +796,7 @@ def main():
             root = tk.Tk()
     else:
         root = tk.Tk()
-    app = MergedHousePriceApp(root)
+    app = MergedHousePriceApp(root) # main app
     root.mainloop()
 
 if __name__ == '__main__':
