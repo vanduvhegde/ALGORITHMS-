@@ -676,8 +676,10 @@ class MergedHousePriceApp:
             ttk.Label(left, text=fname).pack(); ent = ttk.Entry(left); ent.pack(); self.predict_entries[fname] = ent
         self.predict_entries['city_district'] = ttk.Combobox(left, values=["Bengaluru","Chennai","Hyderabad","Delhi","Mumbai","Kolkata","Pune","Noida"])
         ttk.Label(left, text='city_district').pack(); self.predict_entries['city_district'].pack()
-        self.predict_entries['property_type'] = ttk.Combobox(left, values=["Apartment","Villa","Independent House","Plot"]); ttk.Label(left,text='property_type').pack(); self.predict_entries['property_type'].pack()
-        self.predict_entries['furnishing_status'] = ttk.Combobox(left, values=["Furnished","Semi-Furnished","Unfurnished"]); ttk.Label(left,text='furnishing_status').pack(); self.predict_entries['furnishing_status'].pack()
+        self.predict_entries['property_type'] = ttk.Combobox(left, values=["Apartment","Villa","Independent House","Plot"]); 
+        ttk.Label(left,text='property_type').pack(); self.predict_entries['property_type'].pack()
+        self.predict_entries['furnishing_status'] = ttk.Combobox(left, values=["Furnished","Semi-Furnished","Unfurnished"]); 
+        ttk.Label(left,text='furnishing_status').pack(); self.predict_entries['furnishing_status'].pack()
 
         ttk.Button(left, text='Predict (best trained model)', command=self._predict_instance).pack(pady=8)
 
